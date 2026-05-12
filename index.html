@@ -1,146 +1,466 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>XRPL Rich List Harvester v2.0</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { background: #050505; color: #00ff00; font-family: monospace; }
-        .neon-glow { box-shadow: 0 0 15px rgba(0, 255, 0, 0.3); }
-        .status-pulse { animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>XRPL Rich List Harvester v2.1-fixed1</title>
+<style>
+  :root{
+    --bg:#050505;--panel:#071107;--line:#0b3b0b;--lime:#00ff00;--dim:#087708;
+    --soft:#102410;--bad:#ff3355;--warn:#c8ff00;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;min-height:100vh;background:radial-gradient(circle at top,#082008,#050505 48%,#000);
+    color:var(--lime);font-family:Consolas,"Courier New",monospace;
+    display:flex;align-items:center;justify-content:center;padding:16px;
+  }
+  .wrap{width:100%;max-width:720px;border:1px solid var(--line);background:rgba(3,10,3,.96);
+    border-radius:16px;padding:22px;box-shadow:0 0 28px rgba(0,255,0,.16),inset 0 0 20px rgba(0,255,0,.04)}
+  h1{font-size:20px;margin:0 0 4px;text-transform:uppercase;letter-spacing:.5px}
+  .sub{font-size:11px;color:var(--dim);font-weight:700;margin-bottom:18px;text-transform:uppercase}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:620px){.grid{grid-template-columns:1fr}}
+  label{font-size:10px;color:var(--dim);font-weight:900;text-transform:uppercase;display:block;margin:0 0 5px}
+  input,select{
+    width:100%;background:#000;color:#b7ffb7;border:1px solid var(--line);border-radius:10px;
+    padding:12px;font:inherit;outline:none;
+  }
+  input:focus,select:focus{border-color:var(--lime);box-shadow:0 0 12px rgba(0,255,0,.18)}
+  .btnrow{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  button{
+    flex:1;min-width:150px;background:#063806;color:var(--lime);border:1px solid #117511;border-radius:10px;
+    padding:13px;font:inherit;font-size:12px;font-weight:900;text-transform:uppercase;cursor:pointer;
+    transition:.12s;
+  }
+  button:hover:not(:disabled){background:var(--lime);color:#000}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .ghost{background:#000}
+  .danger{background:#36060d;border-color:#7a1122;color:#ff9aaa}
+  .danger:hover:not(:disabled){background:var(--bad);color:#000}
+  .runtime{display:none;margin-top:18px;border:1px solid var(--line);border-radius:12px;padding:13px;background:rgba(0,0,0,.45)}
+  .runtime.show{display:block}
+  .statrow{display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#aaffaa;margin-bottom:7px;flex-wrap:wrap}
+  .bar{height:7px;background:#021402;border-radius:999px;overflow:hidden;border:1px solid #073507}
+  .fill{height:100%;width:0;background:linear-gradient(90deg,#00ff00,#aaff00);transition:width .25s}
+  .action{font-size:10px;color:var(--dim);margin-top:8px;min-height:16px;text-transform:uppercase}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+  @media(max-width:620px){.cards{grid-template-columns:repeat(2,1fr)}}
+  .card{border:1px solid #083808;background:#010901;border-radius:10px;padding:10px}
+  .k{font-size:9px;color:var(--dim);text-transform:uppercase}
+  .v{font-size:18px;font-weight:900;color:var(--lime);margin-top:3px}
+  .log{margin-top:12px;max-height:190px;overflow:auto;background:#000;border:1px solid #082d08;border-radius:10px;
+    padding:10px;font-size:11px;line-height:1.45;color:#aaffaa;white-space:pre-wrap}
+  .foot{margin-top:16px;font-size:10px;color:#086808;line-height:1.5}
+  .warn{color:var(--warn)}
+  .bad{color:var(--bad)}
+</style>
 </head>
-<body class="flex items-center justify-center min-h-screen">
+<body>
+<div class="wrap">
+  <h1>XRPMAN Presents // XRPL Rich List Harvester</h1>
+  <div class="sub">Silent Harvester v2.1-fixed1 · API direct · dedupe + normalized export · Powered by XMΣMΣ</div>
 
-    <div class="w-full max-w-md p-8 border border-green-900 bg-zinc-950 rounded-lg neon-glow">
-        <h1 class="text-xl font-bold mb-2 tracking-tighter uppercase">Silent Harvester v2.0</h1>
-        <p class="text-xs text-green-700 mb-6 font-bold">MODE: API_DIRECT_TO_FILE</p>
-
-        <div class="space-y-4">
-            <div>
-                <label class="text-[10px] uppercase text-green-800">Target Depth (Accounts)</label>
-                <input id="targetDepth" type="number" value="1000" step="100" class="w-full bg-black border border-green-900 p-3 rounded mt-1 text-green-400 outline-none focus:border-green-400">
-            </div>
-
-            <div id="runtimeUI" class="hidden">
-                <div class="flex justify-between text-[10px] mb-1">
-                    <span>PROGRESS: <span id="percentText">0%</span></span>
-                    <span id="counterText">0 / 0</span>
-                </div>
-                <div class="w-full bg-zinc-900 h-1 rounded-full overflow-hidden">
-                    <div id="progressBar" class="bg-green-500 h-full w-0 transition-all duration-300"></div>
-                </div>
-                <p id="currentAction" class="text-[9px] mt-2 text-green-800 uppercase italic">Idle...</p>
-            </div>
-
-            <div class="flex gap-2">
-                <button id="runBtn" onclick="runHarvester()" class="flex-1 bg-green-900 hover:bg-green-500 hover:text-black py-3 rounded font-bold text-xs transition-all uppercase">
-                    Initialize Scan
-                </button>
-                <button id="downloadBtn" onclick="exportData()" class="hidden flex-1 border border-green-900 hover:bg-green-900 py-3 rounded font-bold text-xs transition-all uppercase">
-                    Download Master
-                </button>
-            </div>
-        </div>
-        
-        <div class="mt-8 text-[10px] text-green-900 leading-tight">
-            [SYS] Identities sourced from 2026 Ledger Explorer metadata.<br>
-            [SYS] CSV includes: Rank, Address, Entity_Name, Balance_XRP.
-        </div>
+  <div class="grid">
+    <div>
+      <label>Target Depth / Accounts</label>
+      <input id="targetDepth" type="number" value="10000" min="50" max="200000" step="50">
     </div>
+    <div>
+      <label>Page Size</label>
+      <select id="pageSize">
+        <option value="50">50 — safest</option>
+        <option value="100" selected>100 — balanced</option>
+        <option value="200">200 — faster if API allows</option>
+      </select>
+    </div>
+    <div>
+      <label>Delay Between Calls / ms</label>
+      <input id="delayMs" type="number" value="300" min="0" step="50">
+    </div>
+    <div>
+      <label>Max Retry Per Page</label>
+      <input id="maxRetries" type="number" value="3" min="0" max="10" step="1">
+    </div>
+  </div>
+
+  <div class="btnrow">
+    <button id="runBtn" onclick="runHarvester()">Initialize Scan</button>
+    <button id="stopBtn" class="danger" onclick="stopHarvester()" disabled>Stop</button>
+    <button id="csvBtn" class="ghost" onclick="exportCSV()" disabled>Download CSV</button>
+    <button id="jsonBtn" class="ghost" onclick="exportJSON()" disabled>Download JSON</button>
+  </div>
+
+  <div id="runtimeUI" class="runtime">
+    <div class="statrow">
+      <span>PROGRESS: <span id="percentText">0%</span></span>
+      <span id="counterText">0 / 0</span>
+      <span>UNIQUE: <span id="uniqueText">0</span></span>
+      <span>DUPES: <span id="dupeText">0</span></span>
+    </div>
+    <div class="bar"><div id="progressBar" class="fill"></div></div>
+    <div id="currentAction" class="action">Idle...</div>
+    <div class="cards">
+      <div class="card"><div class="k">Fetched</div><div class="v" id="fetchedStat">0</div></div>
+      <div class="card"><div class="k">Unique</div><div class="v" id="uniqueStat">0</div></div>
+      <div class="card"><div class="k">Errors</div><div class="v" id="errorStat">0</div></div>
+      <div class="card"><div class="k">Last Rank</div><div class="v" id="rankStat">0</div></div>
+    </div>
+    <div id="logBox" class="log">Ready.</div>
+  </div>
+
+  <div class="foot">
+    [SYS] Exports: Rank, Address, Identity, Balance_XRP, Balance_Raw, Duplicate_Count, Source.<br>
+    [SYS] Safety: dedupes by address, keeps best/highest balance, handles broken identity objects, and prevents duplicate pagination poison.<br>
+    <span class="warn">NOTE:</span> If XRPSCAN blocks direct browser fetch/CORS, this app will fail safely and log the route problem. A backend/proxy is required for full production reliability.
+  </div>
+</div>
 
 <script>
-    let masterList = [];
-    let isRunning = false;
+'use strict';
 
-    async function runHarvester() {
-        const depth = parseInt(document.getElementById('targetDepth').value);
-        const runBtn = document.getElementById('runBtn');
-        const runtimeUI = document.getElementById('runtimeUI');
-        const progressBar = document.getElementById('progressBar');
-        const currentAction = document.getElementById('currentAction');
-        const counterText = document.getElementById('counterText');
-        const percentText = document.getElementById('percentText');
+const APP_VERSION = 'v2.1-fixed1';
 
-        if(isRunning) return;
-        
-        isRunning = true;
-        masterList = [];
-        runBtn.disabled = true;
-        runBtn.innerText = "SCANNING...";
-        runtimeUI.classList.remove('hidden');
-        document.getElementById('downloadBtn').classList.add('hidden');
+let isRunning = false;
+let rawRows = [];
+let dedupedMap = new Map();
+let errorCount = 0;
+let duplicateCount = 0;
 
-        let offset = 0;
-        const pageSize = 50;
+const KNOWN_ANCHORS = {
+  "rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY": "Ripple Escrow (Primary)",
+  "rDAE53VfMvftPB4ogpWGWvzkQxfht6JPxr": "Binance Cold Storage",
+  "rPyCQm8E5j78PDbrfKF24fRC7qUAk1kDMZ": "Known Large Holder / Watchlist",
+  "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh": "XRPL Genesis Account",
+  "rRmgo6NW1W7GHjC5qEpcpQnq8NE74ZS1P": "Uphold Custody",
+  "r3bqvUfF9weyxZqwo6qumBV2Q5k8LzepjJ": "Binance-Peg / Bridge",
+  "rw3fRcmn5PJyPKuvtAwHDSpEqoW2JKmKbu": "Bithumb Hot Wallet"
+};
 
-        while(offset < depth && isRunning) {
-            currentAction.innerText = `Fetching accounts ${offset} to ${offset + pageSize}...`;
-            
-            try {
-                const response = await fetch(`https://api.xrpscan.com/api/v1/balances?limit=${pageSize}&offset=${offset}`);
-                if(!response.ok) throw new Error("Rate limit");
+function $(id){ return document.getElementById(id); }
 
-                const data = await response.json();
-                if(!data || data.length === 0) break;
+function log(msg, type='info'){
+  const box = $('logBox');
+  const stamp = new Date().toISOString().slice(11,19);
+  const prefix = type === 'error' ? '[ERR]' : type === 'warn' ? '[WARN]' : '[SYS]';
+  box.textContent += `\n${stamp} ${prefix} ${msg}`;
+  box.scrollTop = box.scrollHeight;
+}
 
-                // Process and Clean Data (The "Intelligence" Layer)
-                data.forEach((acc, idx) => {
-                    masterList.push({
-                        rank: offset + idx + 1,
-                        address: acc.account,
-                        // Identity logic: API Name or common 2026 labels
-                        identity: acc.name || detectIdentity(acc.account),
-                        balance: acc.balance
-                    });
-                });
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
-                offset += pageSize;
-                const progress = (offset / depth) * 100;
-                progressBar.style.width = `${Math.min(progress, 100)}%`;
-                percentText.innerText = `${Math.round(Math.min(progress, 100))}%`;
-                counterText.innerText = `${masterList.length} / ${depth}`;
+function normalizeIdentity(value, address){
+  if (KNOWN_ANCHORS[address]) return KNOWN_ANCHORS[address];
+  if (!value) return 'Unknown / unresolved identity';
 
-                // Throttle for stability
-                await new Promise(r => setTimeout(r, 250));
-            } catch (e) {
-                currentAction.innerText = "Error: Retrying in 2 seconds...";
-                await new Promise(r => setTimeout(r, 2000));
-            }
-        }
+  if (typeof value === 'string') {
+    if (value === '[object Object]' || !value.trim()) return 'Unknown / unresolved identity';
+    return value.trim();
+  }
 
-        currentAction.innerText = "Capture Complete. Data buffered.";
-        runBtn.disabled = false;
-        runBtn.innerText = "Re-Initialize";
-        document.getElementById('downloadBtn').classList.remove('hidden');
-        isRunning = false;
+  if (typeof value === 'object') {
+    return value.name || value.label || value.domain || value.username || 'Unknown / unresolved identity';
+  }
+
+  return String(value);
+}
+
+function normalizeBalance(raw){
+  const num = Number(raw);
+  if (!Number.isFinite(num)) return 0;
+
+  // XRPL APIs often return drops. If huge, assume drops and convert.
+  if (num > 10000000000) return num / 1000000;
+
+  return num;
+}
+
+function csvEscape(value){
+  const s = String(value ?? '');
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function extractRows(data){
+  // Handles common API shapes:
+  // [ ... ]
+  // { balances:[...] }
+  // { accounts:[...] }
+  // { data:[...] }
+  // { result:[...] }
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.balances)) return data.balances;
+  if (Array.isArray(data?.accounts)) return data.accounts;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.result)) return data.result;
+  return [];
+}
+
+function extractAccount(row){
+  return row.account || row.address || row.Account || row.wallet || row.classicAddress || '';
+}
+
+function extractIdentity(row){
+  return row.name || row.identity || row.Identity || row.entity || row.Entity_Name || row.domain || row.username || null;
+}
+
+function extractBalance(row){
+  return row.balance ?? row.Balance_XRP ?? row.xrp_balance ?? row.Balance ?? row.amount ?? 0;
+}
+
+function upsertDeduped(item){
+  const existing = dedupedMap.get(item.address);
+  if (!existing) {
+    dedupedMap.set(item.address, { ...item, duplicate_count: 1, source_ranks: [item.rank] });
+    return;
+  }
+
+  duplicateCount++;
+  existing.duplicate_count++;
+  existing.source_ranks.push(item.rank);
+
+  // Keep earliest rank.
+  existing.rank = Math.min(existing.rank, item.rank);
+
+  // Keep highest balance seen.
+  if (item.balance_xrp > existing.balance_xrp) {
+    existing.balance_xrp = item.balance_xrp;
+    existing.balance_raw = item.balance_raw;
+  }
+
+  // Upgrade identity if current is unknown.
+  if (
+    (!existing.identity || existing.identity === 'Unknown / unresolved identity') &&
+    item.identity &&
+    item.identity !== 'Unknown / unresolved identity'
+  ) {
+    existing.identity = item.identity;
+  }
+}
+
+function updateUI(fetched, target, offset){
+  const unique = dedupedMap.size;
+  const pct = target > 0 ? Math.min(100, Math.round((Math.min(offset, target) / target) * 100)) : 0;
+
+  $('progressBar').style.width = pct + '%';
+  $('percentText').textContent = pct + '%';
+  $('counterText').textContent = `${fetched} / ${target}`;
+  $('uniqueText').textContent = unique;
+  $('dupeText').textContent = duplicateCount;
+
+  $('fetchedStat').textContent = fetched;
+  $('uniqueStat').textContent = unique;
+  $('errorStat').textContent = errorCount;
+  $('rankStat').textContent = offset;
+}
+
+async function fetchPage(limit, offset, maxRetries){
+  const url = `https://api.xrpscan.com/api/v1/balances?limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-store'
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      const rows = extractRows(data);
+
+      if (!Array.isArray(rows)) {
+        throw new Error('Unexpected API shape');
+      }
+
+      return rows;
+    } catch (err) {
+      errorCount++;
+      log(`Page offset ${offset} failed attempt ${attempt + 1}/${maxRetries + 1}: ${err.message}`, 'warn');
+
+      if (attempt >= maxRetries) {
+        throw err;
+      }
+
+      await sleep(900 + attempt * 700);
     }
+  }
 
-    function detectIdentity(addr) {
-        // Known 2026 Anchor Wallets for fallback labeling
-        const anchors = {
-            "rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY": "Ripple Escrow (Primary)",
-            "rDAE53VfMvftPB4ogpWGWvzkQxfht6JPxr": "Binance Cold Storage",
-            "rPyCQm8E5j78PDbrfKF24fRC7qUAk1kDMZ": "Bithumb Cold",
-            "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh": "Ripple Genesis (Founder)",
-            "rRmgo6NW1W7GHjC5qEpcpQnq8NE74ZS1P": "Uphold Custody"
+  return [];
+}
+
+async function runHarvester(){
+  if (isRunning) return;
+
+  const targetDepth = Math.max(50, Number($('targetDepth').value) || 1000);
+  const pageSize = Math.max(1, Number($('pageSize').value) || 100);
+  const delayMs = Math.max(0, Number($('delayMs').value) || 0);
+  const maxRetries = Math.max(0, Number($('maxRetries').value) || 3);
+
+  isRunning = true;
+  rawRows = [];
+  dedupedMap = new Map();
+  errorCount = 0;
+  duplicateCount = 0;
+
+  $('runtimeUI').classList.add('show');
+  $('runBtn').disabled = true;
+  $('stopBtn').disabled = false;
+  $('csvBtn').disabled = true;
+  $('jsonBtn').disabled = true;
+  $('runBtn').textContent = 'Scanning...';
+  $('logBox').textContent = `Ready.\n${new Date().toISOString().slice(11,19)} [SYS] Scan started. Target=${targetDepth}, pageSize=${pageSize}`;
+
+  let offset = 0;
+  let fetched = 0;
+
+  try {
+    while (offset < targetDepth && isRunning) {
+      $('currentAction').textContent = `Fetching accounts ${offset} to ${Math.min(offset + pageSize, targetDepth)}...`;
+
+      const rows = await fetchPage(pageSize, offset, maxRetries);
+
+      if (!rows.length) {
+        log(`No rows returned at offset ${offset}. Scan complete.`, 'warn');
+        break;
+      }
+
+      rows.forEach((row, idx) => {
+        const address = extractAccount(row);
+        if (!address || !/^r[1-9A-HJ-NP-Za-km-z]{24,34}$/.test(address)) return;
+
+        const balanceRaw = extractBalance(row);
+        const balanceXrp = normalizeBalance(balanceRaw);
+        const rank = offset + idx + 1;
+
+        const item = {
+          rank,
+          address,
+          identity: normalizeIdentity(extractIdentity(row), address),
+          balance_xrp: balanceXrp,
+          balance_raw: balanceRaw,
+          source: 'xrpscan_balances_api'
         };
-        return anchors[addr] || "Unknown Holder";
+
+        rawRows.push(item);
+        upsertDeduped(item);
+      });
+
+      fetched = rawRows.length;
+      offset += pageSize;
+      updateUI(fetched, targetDepth, offset);
+
+      log(`Fetched page. Raw=${fetched}, Unique=${dedupedMap.size}, Dupes=${duplicateCount}`);
+
+      if (delayMs > 0) await sleep(delayMs);
     }
 
-    function exportData() {
-        const headers = "Rank,Address,Identity,Balance_XRP\n";
-        const content = masterList.map(i => `${i.rank},${i.address},"${i.identity}",${i.balance}`).join('\n');
-        const blob = new Blob([headers + content], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `XRPL_RichList_Top${masterList.length}_2026.csv`;
-        a.click();
-    }
+    $('currentAction').textContent = isRunning ? 'Capture complete. Data buffered.' : 'Stopped by operator. Partial data buffered.';
+    log(isRunning ? 'Scan complete.' : 'Scan stopped. Partial export is available.', isRunning ? 'info' : 'warn');
+  } catch (err) {
+    $('currentAction').textContent = 'Scan stopped by error. Partial data buffered.';
+    log(`Fatal stop: ${err.message}`, 'error');
+  } finally {
+    isRunning = false;
+    $('runBtn').disabled = false;
+    $('stopBtn').disabled = true;
+    $('runBtn').textContent = 'Re-Initialize';
+    $('csvBtn').disabled = dedupedMap.size === 0;
+    $('jsonBtn').disabled = dedupedMap.size === 0;
+    updateUI(rawRows.length, targetDepth, offset);
+  }
+}
+
+function stopHarvester(){
+  if (!isRunning) return;
+  isRunning = false;
+  $('currentAction').textContent = 'Stopping after current request...';
+  log('Stop requested by operator.', 'warn');
+}
+
+function getDedupedList(){
+  return Array.from(dedupedMap.values())
+    .sort((a,b) => {
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      return b.balance_xrp - a.balance_xrp;
+    })
+    .map((item, idx) => ({
+      export_rank: idx + 1,
+      source_rank_min: item.rank,
+      address: item.address,
+      identity: item.identity,
+      balance_xrp: item.balance_xrp,
+      balance_raw: item.balance_raw,
+      duplicate_count: item.duplicate_count,
+      source: item.source
+    }));
+}
+
+function downloadText(filename, text, type){
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function exportCSV(){
+  const list = getDedupedList();
+  const headers = [
+    'Export_Rank',
+    'Source_Rank_Min',
+    'Address',
+    'Identity',
+    'Balance_XRP',
+    'Balance_Raw',
+    'Duplicate_Count',
+    'Source'
+  ];
+
+  const lines = [headers.join(',')];
+
+  list.forEach(i => {
+    lines.push([
+      i.export_rank,
+      i.source_rank_min,
+      csvEscape(i.address),
+      csvEscape(i.identity),
+      Number(i.balance_xrp || 0).toFixed(6),
+      csvEscape(i.balance_raw),
+      i.duplicate_count,
+      csvEscape(i.source)
+    ].join(','));
+  });
+
+  const filename = `XRPL_RichList_Unique${list.length}_${new Date().toISOString().slice(0,10)}_${APP_VERSION}.csv`;
+  downloadText(filename, lines.join('\n'), 'text/csv;charset=utf-8');
+  log(`CSV exported: ${filename}`);
+}
+
+function exportJSON(){
+  const list = getDedupedList();
+  const payload = {
+    app: 'XRPL Rich List Harvester',
+    version: APP_VERSION,
+    generated_at: new Date().toISOString(),
+    raw_rows_seen: rawRows.length,
+    unique_addresses: list.length,
+    duplicate_count: duplicateCount,
+    errors: errorCount,
+    data: list
+  };
+
+  const filename = `XRPL_RichList_Unique${list.length}_${new Date().toISOString().slice(0,10)}_${APP_VERSION}.json`;
+  downloadText(filename, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
+  log(`JSON exported: ${filename}`);
+}
 </script>
 </body>
 </html>
-
-}
